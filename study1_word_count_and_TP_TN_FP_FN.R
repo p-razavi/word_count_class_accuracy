@@ -29,17 +29,17 @@ combine_scenario_codes <- function(scen){
     left_join(all_gpt_codes %>% select(no, starts_with(scen_abrev)),
               by = c("no" = "no")) %>% 
     rename(id = no,
-           gpt_ae = ae,
-           gpt_ce = ce,
-           gpt_ad = ad,
-           gpt_a = a,
-           gpt_h = h,
+           hum_ae = ae,
+           hum_ce = ce,
+           hum_ad = ad,
+           hum_a = a,
+           hum_h = h,
            word_count = contains("word"),
-           hum_ae = ends_with("_AE"),
-           hum_ce = ends_with("_CE"),
-           hum_ad = ends_with("_AD"),
-           hum_a = ends_with("_A"),
-           hum_h = ends_with("_H")) %>% 
+           gpt_ae = ends_with("_AE"),
+           gpt_ce = ends_with("_CE"),
+           gpt_ad = ends_with("_AD"),
+           gpt_a = ends_with("_A"),
+           gpt_h = ends_with("_H")) %>% 
     mutate(scenario = scen) %>% 
     relocate(scenario, id, response, word_count)
   
@@ -100,7 +100,7 @@ all_scenarios_aug %>%
   filter(!is.na(response)) %>% 
   group_by(scenario, strat_count) %>% 
   summarize(count = n()) %>% 
-  print(n = 35)
+  print(n = 36)
 
 
 all_scenarios_aug <- all_scenarios_aug %>% 
@@ -125,8 +125,8 @@ calculate_counts_cor_with_wordcount <- function(scen){
   cor_df <- all_scenarios_aug %>%
     filter(!is.na(response)) %>%
     filter(scenario == scen) %>%
-    select(contains("count")) %>%
-    select(-strat_count, -total_count) %>% 
+    dplyr::select(contains("count")) %>%
+    dplyr::select(-strat_count, -total_count) %>% 
     cor(., use = "complete.obs", method = "spearman") %>% 
     round(., 2) %>% 
     as.data.frame() %>% 
@@ -134,7 +134,7 @@ calculate_counts_cor_with_wordcount <- function(scen){
     mutate(scenario = scen) %>% 
     relocate(scenario) %>% 
     filter(var == "word_count") %>% 
-    select(-c(var, word_count))
+    dplyr::select(-c(var, word_count))
   return(cor_df)
 }
 
@@ -154,7 +154,7 @@ calculate_ratios_cor_with_wordcount <- function(scen){
   cor_df <- all_scenarios_aug %>%
     filter(!is.na(response)) %>%
     filter(scenario == scen) %>%
-    select(word_count, contains("ratio")) %>%
+    dplyr::select(word_count, contains("ratio")) %>%
     cor(., use = "complete.obs", method = "spearman") %>% 
     round(., 2) %>% 
     as.data.frame() %>% 
@@ -162,7 +162,7 @@ calculate_ratios_cor_with_wordcount <- function(scen){
     mutate(scenario = scen) %>% 
     relocate(scenario) %>% 
     filter(var == "word_count") %>% 
-    select(-c(var, word_count))
+    dplyr::select(-c(var, word_count))
   return(cor_df)
 }
 
@@ -224,8 +224,12 @@ partial_cors_with_pvalues <- calculate_partial_cor_and_pvalues_with_wordcount("A
   mutate(index = sub("count.*", "count", index)) %>% 
   mutate(p_value_adjusted = p.adjust(p_value, method = "holm")) %>% 
   mutate(index = stringr::str_replace(index, "_count", ""),
-         p_value = sub("^0", "", as.character(p_value)),
-         p_value_adjusted = if_else(p_value_adjusted > 0.999, "> .999", sub("^0", "", as.character(p_value_adjusted)))) %>% 
+         r_sqrd = janitor::round_half_up(estimate^2, 2),
+         sig = if_else(p_value_adjusted < 0.05, "*", " ")
+         ) %>% 
+  mutate(p_value = if_else(p_value < 0.001, "<0.001", as.character(p_value)),
+         p_value_adjusted = if_else(p_value_adjusted < .001, "<0.001",
+                                    if_else(p_value_adjusted > .999, "> 0.999", as.character(p_value_adjusted)))) %>% 
   relocate(scenario)
 
 write.csv(partial_cors_with_pvalues, "study1_partial_cors.csv")  
